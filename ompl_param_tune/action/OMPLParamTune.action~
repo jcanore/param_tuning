@@ -1,0 +1,13 @@
+string[] param_names
+float64[] param_values
+exotica/Vector q_start
+exotica/Vector q_goal
+moveit_msgs/PlanningSceneWorld environment
+uint32 max_it
+---
+bool succeed
+float64 planning_time
+float64 cost
+---
+uint32 action_id
+
