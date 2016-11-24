@@ -1,0 +1,12 @@
+<launch>
+
+  <param name="robot_description" textfile="$(find ompl_solver_demo)/resources/lwr_simplified.urdf" />
+  <param name="robot_description_semantic" textfile="$(find ompl_solver_demo)/resources/lwr_simplified.srdf" />
+
+  <node pkg="planning_benchmark" type="planning_benchmark_node" name="OMPLBenchmarkNode" output="screen">
+    <param name="solver" type="string" value="OMPL Interface" />
+    <param name="problem" type="string" value="OMPLProblem" />
+  </node>
+
+  <node name="rviz" pkg="rviz" type="rviz" respawn="false"	args="-d $(find planning_benchmark)/resources/config.rviz" />
+</launch>
