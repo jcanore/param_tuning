@@ -4,10 +4,16 @@ exotica/Vector q_start
 exotica/Vector q_goal
 moveit_msgs/PlanningSceneWorld environment
 uint32 max_it
+float64 max_time
 ---
 bool succeed
-float64 planning_time
-float64 cost
+float64 planning_time_mean
+float64 planning_time_std
+float64 simplification_time_mean
+float64 simplification_time_std
+float64 cost_mean
+float64 cost_std
+float64 success_rate
 ---
 uint32 action_id
 

@@ -38,13 +38,15 @@ namespace exotica
   bool OMPLParamTune::evaluate(
       const ompl_param_tune::OMPLParamTuneGoalConstPtr &goal)
   {
+    OMPLsolver_ptr ompl_solver = boost::static_pointer_cast<OMPLsolver>(sol_);
+    ompl_solver->getOMPLSolver()->timeout_ = goal->max_time;
 
     int dimension = prob_->scene_->getNumJoints();
     Eigen::VectorXd q_start, q_goal;
     exotica::vectorExoticaToEigen(goal->q_start, q_start);
     exotica::vectorExoticaToEigen(goal->q_goal, q_goal);
     Eigen::MatrixXd solution;
-
+    prob_->scene_->getPlanningScene()->getWorldNonConst()->clearObjects();
     prob_->scene_->getPlanningScene()->processPlanningSceneWorldMsg(
         goal->environment);
     prob_->scene_->publishScene();
@@ -61,43 +63,50 @@ namespace exotica
     }
     else
     {
-      OMPLsolver_ptr ompl_solver = boost::static_pointer_cast<OMPLsolver>(sol_);
       for (int i = 0; i < goal->param_names.size(); i++)
       {
-        ompl_solver->getOMPLSolver()->getOMPLSimpleSetup()->getPlanner()->params().setParam(
-            goal->param_names[i], goal->param_values[i]);
+        if (ompl_solver->getOMPLSolver()->getOMPLSimpleSetup()->getPlanner()->params().hasParam(
+            goal->param_names[i]))
+          ompl_solver->getOMPLSolver()->getOMPLSimpleSetup()->getPlanner()->params().setParam(
+              goal->param_names[i], goal->param_values[i]);
+        else if (goal->param_names[i] == "simplification_trails")
+        {
+          ompl_solver->getOMPLSolver()->simplify_trails_ = std::stoi(
+              goal->param_values[i]);
+          ROS_INFO_STREAM("Set simplification trails to "<<ompl_solver->getOMPLSolver()->simplify_trails_);
+        }
+        else
+          ROS_ERROR_STREAM("Unknown parameter "<<goal->param_names[i]);
       }
     }
 
     //  Everything is set, now lets solve
     int max_it = goal->max_it;
-    //  First check if the problem is solvable.
-    bool solvable = false;
-    try
+    int succeed_cnt = 0;
+
+    struct ResultData
     {
-      sol_->Solve(q_start, solution);
-      solvable = true;
-    } catch (SolveException ex)
+        double planning_time;
+        double simplification_time;
+        double cost;
+    };
+
+    std::map<int, ResultData> result_maps;
     {
-      ERROR("OMPL Solver failed, "<<ex.what());
-    }
-    if (!solvable)
-    {
-      result.succeed = false;
-      as_.setAborted(result);
-    }
-    else
-    {
-      HIGHLIGHT(
-          "The problem is solvable, now start the evaluation over "<<max_it<<" trials");
-      std::map<int, double> time_maps;
       for (int i = 0; i < max_it; i++)
       {
         try
         {
-          ros::Time start = ros::Time::now();
           sol_->Solve(q_start, solution);
-          time_maps[i] = ros::Duration(ros::Time::now() - start).toSec();
+          ResultData new_result;
+          new_result.planning_time =
+              ompl_solver->getOMPLSolver()->planning_time_.toSec();
+          new_result.simplification_time =
+              ompl_solver->getOMPLSolver()->simplification_time_.toSec();
+          new_result.cost = 0.0;
+          for (int n = 0; n < solution.rows() - 1; n++)
+            new_result.cost += (solution.row(n + 1) - solution.row(n)).norm();
+          result_maps[i] = new_result;
         } catch (SolveException ex)
         {
           ERROR("OMPL Solver failed at iteration "<<i<<", "<<ex.what());
@@ -105,13 +114,41 @@ namespace exotica
       }
 
       result.succeed = true;
-      double overall = 0.0;
-      for (auto &it : time_maps)
-        overall += it.second;
-      result.planning_time = overall / (double) time_maps.size();
+      double success_cnt = result_maps.size();
+      result.success_rate = (double) success_cnt / max_it;
+      ROS_INFO_STREAM(
+          "Sucessfully solved "<<success_cnt<<" out of "<<max_it<<" trails");
+
+      Eigen::VectorXd planning_times(success_cnt), simplification_times(
+          success_cnt), costs(success_cnt);
+      int i = 0;
+      for (auto &it : result_maps)
+      {
+        planning_times[i] = it.second.planning_time;
+        simplification_times[i] = it.second.simplification_time;
+        costs[i] = it.second.cost;
+        i++;
+      }
+      computeMeanStd(planning_times, result.planning_time_mean,
+          result.planning_time_std);
+      computeMeanStd(simplification_times, result.simplification_time_mean,
+          result.simplification_time_std);
+      computeMeanStd(costs, result.cost_mean, result.cost_std);
       as_.setSucceeded(result);
     }
     return result.succeed;
+  }
+
+  void OMPLParamTune::computeMeanStd(const Eigen::VectorXd &data, double &mean,
+      double &std)
+  {
+    double sum = data.sum();
+    mean = data.mean();
+    std = 0.0;
+
+    for (int i = 0; i < data.rows(); ++i)
+      std += pow(data(i) - mean, 2.0);
+    std = sqrt(std/data.rows());
   }
 }
 

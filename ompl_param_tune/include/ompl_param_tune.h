@@ -24,6 +24,7 @@ namespace exotica
 
     private:
       bool evaluate(const ompl_param_tune::OMPLParamTuneGoalConstPtr &goal);
+      void computeMeanStd(const Eigen::VectorXd &data, double &mean, double &std);
       ros::NodeHandle nh_;
       actionlib::SimpleActionServer<ompl_param_tune::OMPLParamTuneAction> as_;
       MotionSolver_ptr sol_;
