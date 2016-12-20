@@ -7,10 +7,6 @@
 
 #include <ompl_param_tune.h>
 
-#include <iostream>
-#include <fstream>
-using namespace std;
-
 
 namespace exotica
 {
