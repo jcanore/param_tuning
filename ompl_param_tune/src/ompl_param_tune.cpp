@@ -7,6 +7,11 @@
 
 #include <ompl_param_tune.h>
 
+#include <iostream>
+#include <fstream>
+using namespace std;
+
+
 namespace exotica
 {
   OMPLParamTune::OMPLParamTune()
@@ -121,26 +126,77 @@ namespace exotica
 
       Eigen::VectorXd planning_times(success_cnt), simplification_times(
           success_cnt), costs(success_cnt);
-      int i = 0;
+	  
+      int i = 0;      
+      double plan_time_min=100;
+      double simp_time_min=100;
+      double tot_time_min=100;
+      double ct_min=100;
+      
+      double plan_time_max=0;
+      double simp_time_max=0;
+      double tot_time_max=0;
+      double ct_max=0;
+      
       for (auto &it : result_maps)
       {
         planning_times[i] = it.second.planning_time;
         simplification_times[i] = it.second.simplification_time;
         costs[i] = it.second.cost;
+	
+	//////////////////////////////////////////////////////////////////////////////
+	
+	if(it.second.planning_time < plan_time_min)
+	    plan_time_min=it.second.planning_time;	
+	
+	if(it.second.planning_time > plan_time_max)
+	    plan_time_max=it.second.planning_time;
+	
+	if(it.second.simplification_time < simp_time_min)
+	    simp_time_min=it.second.simplification_time;
+	
+	if(it.second.simplification_time > simp_time_max)
+	    simp_time_max=it.second.simplification_time;
+	
+	if(it.second.planning_time + it.second.simplification_time < tot_time_min)
+	    tot_time_min=it.second.planning_time + it.second.simplification_time;
+	
+	if(it.second.planning_time + it.second.simplification_time > tot_time_max)
+	    tot_time_max=it.second.planning_time + it.second.simplification_time;
+	    
+	if(it.second.cost < ct_min)
+	    ct_min=it.second.cost;
+	
+	if(it.second.cost > ct_max)
+	    ct_max=it.second.cost;
+	
+	//////////////////////////////////////////////////////////////////////////////
+	
         i++;
-      }
-      computeMeanStd(planning_times, result.planning_time_mean,
-          result.planning_time_std);
-      computeMeanStd(simplification_times, result.simplification_time_mean,
-          result.simplification_time_std);
+      }                  
+      
+      ////////////////////////////////////////////////
+      
+      result.planning_time_min=plan_time_min;
+      result.planning_time_max=plan_time_max;      
+      result.simplification_time_min=simp_time_min;
+      result.simplification_time_max=simp_time_max;
+      result.total_time_min=tot_time_min;
+      result.total_time_max=tot_time_max;
+      result.cost_min=ct_min;
+      result.cost_max=ct_max;
+      
+      ////////////////////////////////////////////////
+      
+      computeMeanStd(planning_times, result.planning_time_mean, result.planning_time_std);
+      computeMeanStd(simplification_times, result.simplification_time_mean, result.simplification_time_std);
       computeMeanStd(costs, result.cost_mean, result.cost_std);
       as_.setSucceeded(result);
     }
     return result.succeed;
   }
 
-  void OMPLParamTune::computeMeanStd(const Eigen::VectorXd &data, double &mean,
-      double &std)
+  void OMPLParamTune::computeMeanStd(const Eigen::VectorXd &data, double &mean, double &std)
   {
     double sum = data.sum();
     mean = data.mean();

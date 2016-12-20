@@ -9,10 +9,18 @@ float64 max_time
 bool succeed
 float64 planning_time_mean
 float64 planning_time_std
+float64 planning_time_min
+float64 planning_time_max
 float64 simplification_time_mean
 float64 simplification_time_std
+float64 simplification_time_min
+float64 simplification_time_max
+float64 total_time_min
+float64 total_time_max
 float64 cost_mean
 float64 cost_std
+float64 cost_min
+float64 cost_max
 float64 success_rate
 ---
 uint32 action_id
