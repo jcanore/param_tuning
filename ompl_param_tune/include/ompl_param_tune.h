@@ -13,6 +13,8 @@
 #include <actionlib/server/simple_action_server.h>
 #include <ompl_imp_solver/OMPLImpSolver.h>
 #include <ompl_solver/OMPLsolver.h>
+#include <ompl_param_tune/PathSimplificationAction.h>
+#include <ompl_solver/OMPLBaseSolver.h>
 
 namespace exotica
 {
@@ -30,6 +32,8 @@ namespace exotica
       MotionSolver_ptr sol_;
       Server_ptr ser_;
       PlanningProblem_ptr prob_;
+      actionlib::SimpleActionServer<ompl_param_tune::PathSimplificationAction> simplify_as_;
+      bool simplify(const ompl_param_tune::PathSimplificationGoalConstPtr &goal);
   };
 }
 

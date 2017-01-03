@@ -15,7 +15,7 @@
     <TrajectorySmooth>1</TrajectorySmooth>
     <Solver>OMPLImpSolver</Solver>
     <SolverPackage>ompl_imp_solver</SolverPackage>
-    <Algorithm>BKPIECE</Algorithm>
+    <Algorithm>SBL</Algorithm>
   </OMPLsolver>
 
   <OMPLProblem name="OMPLProblem">

@@ -1,0 +1,7 @@
+exotica/Vector[] path
+moveit_msgs/PlanningSceneWorld environment
+---
+exotica/Vector[] path
+---
+uint32 action_id
+

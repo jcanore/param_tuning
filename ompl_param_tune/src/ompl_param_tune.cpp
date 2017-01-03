@@ -11,7 +11,9 @@ namespace exotica
 {
   OMPLParamTune::OMPLParamTune()
       : nh_("~"), as_(nh_, "/OMPL_PARAM_TUNE",
-          boost::bind(&OMPLParamTune::evaluate, this, _1), false)
+          boost::bind(&OMPLParamTune::evaluate, this, _1), false), simplify_as_(
+          nh_, "/PATH_SIMPLIFICATION",
+          boost::bind(&OMPLParamTune::simplify, this, _1), false)
   {
     std::string config_name;
     std::string problem_name, solver_name;
@@ -26,6 +28,7 @@ namespace exotica
     sol_->specifyProblem(prob_);
 
     as_.start();
+    simplify_as_.start();
     HIGHLIGHT_NAMED("OMPL Paramter Tunning Action",
         "Ready. Action topic /OMPL_PARAM_TUNE");
   }
@@ -50,9 +53,17 @@ namespace exotica
     prob_->scene_->getPlanningScene()->processPlanningSceneWorldMsg(
         goal->environment);
     prob_->scene_->publishScene();
-    sol_->setGoalState(q_goal);
-
     ompl_param_tune::OMPLParamTuneResult result;
+    try
+    {
+      sol_->setGoalState(q_goal);
+    } catch (Exception ex)
+    {
+      result.succeed = false;
+      as_.setAborted(result);
+      return false;
+    }
+
     if (goal->param_names.size() != goal->param_values.size())
     {
       ERROR(
@@ -73,7 +84,8 @@ namespace exotica
         {
           ompl_solver->getOMPLSolver()->simplify_trails_ = std::stoi(
               goal->param_values[i]);
-          ROS_INFO_STREAM("Set simplification trails to "<<ompl_solver->getOMPLSolver()->simplify_trails_);
+          ROS_INFO_STREAM(
+              "Set simplification trails to "<<ompl_solver->getOMPLSolver()->simplify_trails_);
         }
         else
           ROS_ERROR_STREAM("Unknown parameter "<<goal->param_names[i]);
@@ -113,28 +125,33 @@ namespace exotica
         }
       }
 
-      result.succeed = true;
-      double success_cnt = result_maps.size();
-      result.success_rate = (double) success_cnt / max_it;
-      ROS_INFO_STREAM(
-          "Sucessfully solved "<<success_cnt<<" out of "<<max_it<<" trails");
-
-      Eigen::VectorXd planning_times(success_cnt), simplification_times(
-          success_cnt), costs(success_cnt);
-      int i = 0;
-      for (auto &it : result_maps)
+      result.succeed = result_maps.size() > 0;
+      if (result.succeed)
       {
-        planning_times[i] = it.second.planning_time;
-        simplification_times[i] = it.second.simplification_time;
-        costs[i] = it.second.cost;
-        i++;
+        int success_cnt = result_maps.size();
+        result.success_rate = (double) success_cnt / max_it;
+        ROS_INFO_STREAM(
+            "Sucessfully solved "<<success_cnt<<" out of "<<max_it<<" trails");
+
+        Eigen::VectorXd planning_times(success_cnt), simplification_times(
+            success_cnt), costs(success_cnt);
+        int i = 0;
+        for (auto &it : result_maps)
+        {
+          planning_times[i] = it.second.planning_time;
+          simplification_times[i] = it.second.simplification_time;
+          costs[i] = it.second.cost;
+          i++;
+        }
+        computeMeanStd(planning_times, result.planning_time_mean,
+            result.planning_time_std);
+        computeMeanStd(simplification_times, result.simplification_time_mean,
+            result.simplification_time_std);
+        computeMeanStd(costs, result.cost_mean, result.cost_std);
+        as_.setSucceeded(result);
       }
-      computeMeanStd(planning_times, result.planning_time_mean,
-          result.planning_time_std);
-      computeMeanStd(simplification_times, result.simplification_time_mean,
-          result.simplification_time_std);
-      computeMeanStd(costs, result.cost_mean, result.cost_std);
-      as_.setSucceeded(result);
+      else
+        as_.setAborted(result);
     }
     return result.succeed;
   }
@@ -148,7 +165,54 @@ namespace exotica
 
     for (int i = 0; i < data.rows(); ++i)
       std += pow(data(i) - mean, 2.0);
-    std = sqrt(std/data.rows());
+    std = sqrt(std / data.rows());
+  }
+
+  bool OMPLParamTune::simplify(
+      const ompl_param_tune::PathSimplificationGoalConstPtr &goal)
+  {
+    moveit_msgs::PlanningScene msg;
+    prob_->getScene()->getCollisionScene()->getPlanningScene()->getPlanningSceneMsg(
+        msg);
+    msg.world = goal->environment;
+    prob_->getScene()->getCollisionScene()->getPlanningScene()->setPlanningSceneMsg(
+        msg);
+    OMPLsolver_ptr ompl_solver = boost::static_pointer_cast<OMPLsolver>(sol_);
+    og::PathGeometric pg(
+        ompl_solver->getOMPLSolver()->ompl_simple_setup_->getSpaceInformation());
+    for (int i = 0; i < (int) goal->path.size(); ++i)
+    {
+      ompl::base::State* new_state =
+          ompl_solver->getOMPLSolver()->state_space_->allocState();
+
+      Eigen::VectorXd q;
+      exotica::vectorExoticaToEigen(goal->path[i], q);
+      ompl_solver->getOMPLSolver()->state_space_->as<OMPLBaseStateSpace>()->ExoticaToOMPLState(
+          q, new_state);
+      pg.append(new_state);
+    }
+    og::PathSimplifierPtr psf_ =
+        ompl_solver->getOMPLSolver()->ompl_simple_setup_->getPathSimplifier();
+    psf_->simplifyMax(pg);
+
+    std::vector<ob::State*> &states = pg.getStates();
+    unsigned int length = 0;
+    const int n1 = states.size() - 1;
+    for (int i = 0; i < n1; ++i)
+      length += pg.getSpaceInformation()->getStateSpace()->validSegmentCount(
+          states[i], states[i + 1]);
+    pg.interpolate(length);
+    ompl_param_tune::PathSimplificationResult result;
+    result.path.resize(pg.getStateCount());
+    for (int i = 0; i < (int) pg.getStateCount(); i++)
+    {
+      Eigen::VectorXd q;
+      ompl_solver->getOMPLSolver()->state_space_->as<OMPLBaseStateSpace>()->OMPLToExoticaState(
+          pg.getState(i), q);
+      exotica::vectorEigenToExotica(q, result.path[i]);
+    }
+    simplify_as_.setSucceeded(result);
+    return true;
   }
 }
 

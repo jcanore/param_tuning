@@ -1,7 +1,7 @@
 <launch>
 
-  <param name="robot_description" textfile="$(find ompl_solver_demo)/resources/lwr_simplified.urdf" />
-  <param name="robot_description_semantic" textfile="$(find ompl_solver_demo)/resources/lwr_simplified.srdf" />
+  <param name="robot_description" textfile="$(find exotica_json)/resources/lwr_simplified.urdf" />
+  <param name="robot_description_semantic" textfile="$(find exotica_json)/resources/lwr_simplified.srdf" />
 
   <node pkg="ompl_param_tune" type="ompl_param_tune_action_node" name="OMPLTuneNode" output="screen">
     <param name="config" type="string" value="$(find ompl_param_tune)/resources/ompl_solver_config.xml" />
