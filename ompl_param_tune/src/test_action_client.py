@@ -16,14 +16,14 @@ import sys
 
 ##########################################################################################
 
-def ompl_tune_client(p1, p2, p3, p4, p5):
-    
+def ompl_tune_client(p1, p2, p3, p4, p5):    
+     
     client = actionlib.SimpleActionClient('/OMPL_PARAM_TUNE', ompl_param_tune.msg.OMPLParamTuneAction)
     client.wait_for_server()
     
     goal = ompl_param_tune.msg.OMPLParamTuneGoal()
     goal.q_start.data = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
-    goal.q_goal.data = [0.0, 1.9, 0.0, 0.5, 0.0, 0.0, 0.0]   
+    goal.q_goal.data = [0.0, 1.9, 0.0, 0.5, 0.0, 0.0, 0.0]
     
     #----------------------------------------------------------------------------------------#	objects           
            
@@ -65,11 +65,11 @@ def ompl_tune_client(p1, p2, p3, p4, p5):
     
     #----------------------------------------------------------------------------------------#
     
-    goal.max_it = 10    
-    goal.max_time = 30    
+    goal.max_it   = 1000   
+    goal.max_time = 3600    
         
-    #----------------------------------------------------------------------------------------#
-    
+    #----------------------------------------------------------------------------------------#    
+          
     goal.param_names.append("range")	# default: 1
     goal.param_values.append(p1)	# values interval: [0.1, 2.0] ; step: 0.1	--> 20 possible values					
 										
@@ -90,7 +90,7 @@ def ompl_tune_client(p1, p2, p3, p4, p5):
     # Search space = 20 x 20 x 20 x 20 x 7 = 1,120,000        
     
     #----------------------------------------------------------------------------------------#
-    
+        
     client.send_goal(goal)
     client.wait_for_result()
 
@@ -106,8 +106,8 @@ if __name__ == '__main__':
         print "Please provide 5 parameters"
         sys.exit(-1)
         
-    try:
-        rospy.init_node('ompl_tune_client_py')                                                   
+    try:        
+        rospy.init_node('ompl_tune_client_py')        
         
         result = ompl_tune_client(sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4], sys.argv[5])
         
@@ -115,16 +115,13 @@ if __name__ == '__main__':
 	t_time_std = result.planning_time_std + result.simplification_time_std		
 	t_time_error = t_time_std/t_time * 100;
 	cost = result.cost_mean
-	cost_error = result.cost_std/cost * 100
-                            
-        print sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4], sys.argv[5], format(t_time, '.6f'), format(result.total_time_min, '.6f'), format(result.total_time_max, '.6f'), format(t_time_std, '.2f'), format(t_time_error, '.2f'), format(cost, '.2f'), format(result.cost_min, '.2f'), format(result.cost_max, '.2f'), format(result.cost_std, '.2f'), format(cost_error, '.2f'), format(result.success_rate, '.2f')
+	cost_error = result.cost_std/cost * 100                           
                 
+        print sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4], sys.argv[5], format(t_time, '.6f'), format(result.total_time_min, '.6f'), format(result.total_time_max, '.6f'), format(t_time_std, '.2f'), format(t_time_error, '.2f'), format(cost, '.2f'), format(result.cost_min, '.2f'), format(result.cost_max, '.2f'), format(result.cost_std, '.2f'), format(cost_error, '.2f'), format(result.success_rate, '.2f')        
                         
     except rospy.ROSInterruptException:
-	print "program interrupted before completion"
-        
-       
-      
-        
-        
+	print "program interrupted before completion" 
+ 
+
+
 

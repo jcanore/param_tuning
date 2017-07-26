@@ -3,12 +3,12 @@
   <param name="robot_description" textfile="$(find ompl_solver_demo)/resources/lwr_simplified.urdf" />
   <param name="robot_description_semantic" textfile="$(find ompl_solver_demo)/resources/lwr_simplified.srdf" />
 
-  <node pkg="ompl_param_tune" type="param_tune_action_node" name="OMPLTuneNode" output="screen" >  
+  <node pkg="ompl_param_tune" type="param_tune_action_node" name="OMPLTuneNode" output="screen" args="1" >  
     <param name="config" type="string" value="$(find ompl_param_tune)/resources/ompl_solver_config.xml" />
     <param name="solver" type="string" value="OMPL Interface" />
     <param name="problem" type="string" value="OMPLProblem" />
 	<param name="thread"  value="2" />
 	<param name="ProblemCnt" value="1000" />
-	<param name="ObstacleCnt" value="100" />
+	<param name="ObstacleCnt" value="300" />
   </node>
 </launch>
